@@ -55,8 +55,6 @@ if __name__ == "__main__":
 
 
 
-
-
     '''
     Cast experiment as vectors
     '''
