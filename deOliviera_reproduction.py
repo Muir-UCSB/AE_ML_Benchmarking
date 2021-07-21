@@ -10,6 +10,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import davies_bouldin_score
+from minisom import MiniSom
 
 if __name__ == "__main__":
 
@@ -17,12 +18,18 @@ if __name__ == "__main__":
     Set hyperparameters
     '''
 
-    os.chdir('C:/Research/Framework_Comparison')
+    os.chdir('E:/Research/Framework_Comparison')
 
     sig_len = 1024
     explained_var = 0.95
     k = 5 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=200)
+
+    n_neurons = 9
+    m_neurons = 9
+    max_som_iter = 1000
+    sig = 3 # NOTE: neighborhood function
+    alpha = .5 # NOTE: learning rate
 
     fname_raw = '210308-1_waveforms'
     fname_filter = '210308-1_filter'
@@ -96,26 +103,38 @@ if __name__ == "__main__":
     ch2_X = mapped_feature_vectors[2]
     ch3_X = mapped_feature_vectors[3]
 
-    '''
-    Do k-means clustering on channels A,B,C, and D
-    '''
-
-    kmeans_A = kmeans.fit(ch0_X)
-    A_lads = kmeans_A.labels_
-
-    kmeans_B = kmeans.fit(ch1_X)
-    B_lads = kmeans_B.labels_
-
-    kmeans_C = kmeans.fit(ch2_X)
-    C_lads = kmeans_C.labels_
-
-    kmeans_D = kmeans.fit(ch3_X)
-    D_lads = kmeans_D.labels_
+    dims = ch0_X.shape[1] # TODO: rename to ch0_dims
 
 
-
+    # Initialization and training
+    # NOTE: dataset has approx 200 data points, roccomendtiaons in 5*sprt(N), 8x8 is ok
+    # NOTE: quantization error is average difference of output samples to winning neurons, https://www.intechopen.com/chapters/69305
 
     '''
-    Generate some plots
+    train SOM
     '''
-    plot_cumulative_AE_labeled(D_lads, stress)
+
+    som = MiniSom(n_neurons, m_neurons, dims, sigma=sig, learning_rate=alpha,
+              neighborhood_function='gaussian')
+    som.pca_weights_init(ch0_X)
+    som.train(ch0_X, max_som_iter, verbose=True)
+
+    ch0_weights = som.get_weights()
+    ch0_weights = np.reshape(ch0_weights, (n_neurons*m_neurons, dims)) # NOTE: reshpae for kmeans
+
+
+    '''
+    Cluster SOM weights (high-dimensional representation)
+    '''
+    kmeans_A = kmeans.fit(ch0_weights)
+    A_lads = kmeans_A.labels_ # NOTE: grab labels
+
+    A_lads = np.reshape(A_lads, (n_neurons, m_neurons))
+
+    ch0_labels = np.zeros(len(ch0_X), dtype=int)
+    for i, feature_vect in enumerate(ch0_X): # NOTE: assign original feature vectors to the label that the closest weight vector channels
+        winner = som.winner(feature_vect) # NOTE: get winning neurons
+        label = A_lads[winner[0]][winner[1]]# NOTE: get label of winning neurons
+        ch0_labels[i]=label
+
+    plot_cumulative_AE_labeled(ch0_labels, stress)

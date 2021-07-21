@@ -67,9 +67,9 @@ def extract_Moevus_vect(waveform=[], dt=10**-7, energy=None, low=None, high=None
 
 
 
-def rescale(feat_vect, eigenvalues):
+def Moevus_rescale(feat_vect, eigenvalues):
     '''
-    rescale rescales a set of feature vectors under PCA mapping so distnaces conform to Moevus2008
+    rescales a set of feature vectors under PCA mapping so distnaces conform to Moevus2008
 
     feat_vects (array-like): An array of feature vectors under the image of a PCA transform
     eigenvalues (array-like): An array of eigenvalues that corresponds to the principal components
@@ -123,8 +123,6 @@ def plot_cumulative_AE(stress, color='black', show=True, save_as=False):
 
     if type(save_as) is str:
         pl.savefig(save_as)
-
-
 
 
 
