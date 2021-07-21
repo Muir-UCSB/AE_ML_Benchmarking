@@ -24,15 +24,16 @@ if __name__ == "__main__":
     k = 5 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=200)
 
-    fname_raw = '210308-1_waveforms'
-    fname_filter = '210308-1_filter'
+    experiment = '210330-1'
+    fname_raw = experiment+'_waveforms'
+    fname_filter = experiment+'_filter'
 
 
     '''
     Read-in and Setup
     '''
-    raw = glob.glob("./Raw_Data/210308-1/"+fname_raw+".txt")[0]
-    filter = glob.glob("./Filtered_Data/210308-1/"+fname_filter+".csv")[0]
+    raw = glob.glob('./Raw_Data/'+experiment+'/'+fname_raw+'.txt')[0]
+    filter = glob.glob('./Filtered_Data/'+experiment+'/'+fname_filter+'.csv')[0]
 
     csv = pd.read_csv(filter)
     time = np.array(csv.Time)
