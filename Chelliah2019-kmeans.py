@@ -13,6 +13,7 @@ from sklearn.metrics import davies_bouldin_score
 from sklearn.preprocessing import MaxAbsScaler
 from sklearn.metrics import adjusted_rand_score as ari
 import skfuzzy as fuzz
+from sklearn.metrics import silhouette_score as sh
 
 
 
@@ -29,7 +30,7 @@ if __name__ == "__main__":
     k = 2 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=200)
 
-    experiment = '210316-1'
+    experiment = '210330-1'
     fname_raw = experiment+'_waveforms'
     fname_filter = experiment+'_filter'
 
@@ -89,8 +90,6 @@ if __name__ == "__main__":
         feat_vect_set[i] = max_abs_scaler.fit_transform(data)
 
 
-
-
     '''
     Do k-means clustering on channels A,B,C, and D
     '''
@@ -111,8 +110,10 @@ if __name__ == "__main__":
     print('S9225-1/B1025-2 ARI: ' , ari(A_lads,D_lads))
     print('S9225-2/B1025-1 ARI: ' , ari(B_lads,C_lads))
 
+    print('Sillhouete value: ', sh(feat_vect_set[2], C_lads))
+
 
     '''
     Generate some plots
     '''
-    plot_cumulative_AE_labeled(C_lads, stress)
+    #plot_cumulative_AE_labeled(C_lads, stress)

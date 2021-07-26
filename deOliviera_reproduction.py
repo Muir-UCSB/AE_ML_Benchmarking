@@ -14,6 +14,8 @@ from minisom import MiniSom
 
 if __name__ == "__main__":
 
+
+
     '''
     Set hyperparameters
     '''
@@ -63,7 +65,6 @@ if __name__ == "__main__":
 
 
 
-
     '''
     Cast experiment as vectors
     '''
@@ -85,6 +86,10 @@ if __name__ == "__main__":
 
     feat_vect_set = [ch0_X, ch1_X, ch2_X, ch3_X]
 
+
+    '''
+    # # TODO: normalize data to 0 mean and unit variance
+    '''
 
 
     '''
@@ -110,6 +115,9 @@ if __name__ == "__main__":
     # NOTE: dataset has approx 200 data points, roccomendtiaons in 5*sprt(N), 8x8 is ok
     # NOTE: quantization error is average difference of output samples to winning neurons, https://www.intechopen.com/chapters/69305
 
+
+
+
     '''
     train SOM
     '''
@@ -123,15 +131,16 @@ if __name__ == "__main__":
     ch0_weights = np.reshape(ch0_weights, (n_neurons*m_neurons, dims)) # NOTE: reshpae for kmeans
 
 
+
+
     '''
     Cluster SOM weights (high-dimensional representation)
     '''
     kmeans_A = kmeans.fit(ch0_weights)
     A_lads = kmeans_A.labels_ # NOTE: grab labels
-
     A_lads = np.reshape(A_lads, (n_neurons, m_neurons))
-
     ch0_labels = np.zeros(len(ch0_X), dtype=int)
+
     for i, feature_vect in enumerate(ch0_X): # NOTE: assign original feature vectors to the label that the closest weight vector channels
         winner = som.winner(feature_vect) # NOTE: get winning neurons
         label = A_lads[winner[0]][winner[1]]# NOTE: get label of winning neurons

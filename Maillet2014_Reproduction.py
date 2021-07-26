@@ -1,19 +1,4 @@
 import numpy as np
-import matplotlib as plt
-import pandas as pd
-from ae_measure2 import *
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.metrics import davies_bouldin_score
-from sklearn.metrics import silhouette_score
-import os
-import glob
-import pylab as pl
-from feature_extraction import *
-
-
-
-import numpy as np
 import matplotlib
 import pylab as pl
 import pandas
@@ -38,7 +23,7 @@ if __name__ == "__main__":
 
     sig_len = 1024
     explained_var = 0.95
-    k = 2 # NOTE: number of clusters
+    k = 8 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=200)
     n_drop = 3 #number of features to drop
 
@@ -113,11 +98,11 @@ if __name__ == "__main__":
             sol = (corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
                               .stack()
                               .sort_values(ascending=False)) #first element of sol series is the pair with the biggest correlation
-            label_to_drop = sol.index[0][1] # NOTE: grabs label
+            label_to_drop = sol.index[0][1] # NOTE: grabs label of first element
             channel.drop(labels = label_to_drop, axis=1, inplace=True)
             dropped_labels.append(label_to_drop)
-
         feat_vect_set[i] = channel.to_numpy().tolist()
+
     dropped_labels = np.reshape(dropped_labels, (len(feat_vect_set), n_drop))
 
 
@@ -128,8 +113,8 @@ if __name__ == "__main__":
     '''
     for i, channel in enumerate(feat_vect_set):
         energy = energies[i]
-        for j, vect in enumerate(channel):
-            vect.append(energy[j])
+        for j, vector in enumerate(channel):
+            vector.append(energy[j])
 
 
 
@@ -168,4 +153,4 @@ if __name__ == "__main__":
     '''
     Generate some plots
     '''
-    plot_cumulative_AE_labeled(B_lads, stress)
+    #plot_cumulative_AE_labeled(B_lads, stress)

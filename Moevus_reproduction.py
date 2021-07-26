@@ -12,7 +12,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import davies_bouldin_score
 from sklearn.preprocessing import MaxAbsScaler
 from sklearn.metrics import adjusted_rand_score as ari
-
+8
 if __name__ == "__main__":
 
     '''
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     sig_len = 1024
     explained_var = 0.95
-    k = 2 # NOTE: number of clusters
+    k = 5 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=200)
 
     experiment = '210316-1'
@@ -103,6 +103,7 @@ if __name__ == "__main__":
     clustered_channels = []
     for channel_data in feat_vect_set:
         clustered_channels.append(kmeans.fit(channel_data).labels_)
+
 
 
     A_lads = clustered_channels[0] # NOTE: labels

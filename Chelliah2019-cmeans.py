@@ -26,10 +26,10 @@ if __name__ == "__main__":
     os.chdir('E:/Research/Framework_Comparison')
 
     sig_len = 1024
-    c = 8 # NOTE: number of clusters
-    m = 2 # NOTE: reccomended value, used in Chelliah2019
+    c = 2 # NOTE: number of clusters
+    myM = 2 # NOTE: reccomended value, used in Chelliah2019
     re_init=500
-    explained_var = .95
+
 
     experiment = '210330-1'
     fname_raw = experiment+'_waveforms'
@@ -86,7 +86,9 @@ if __name__ == "__main__":
 
     feat_vect_set = [ch0_X, ch1_X, ch2_X, ch3_X] # NOTE: needs to be a list for PCA map block
 
-    # NOTE: do rescaling
+    '''
+    Do rescaling
+    '''
     for i, data in enumerate(feat_vect_set):
         feat_vect_set[i] = max_abs_scaler.fit_transform(data)
 
@@ -95,16 +97,16 @@ if __name__ == "__main__":
     Do c-means clustering on channels A,B,C, and D, note this requires transpose of data
     '''
 
-    Au, minjm = my_cmeans(np.array(ch0_X).T, c=c, n_init=re_init, verbose=True)
+    Au, minjm = my_cmeans(np.array(feat_vect_set[0]).T, c=c, m=myM, n_init=re_init, verbose=True)
     A_lads = np.argmax(Au, axis=0) # NOTE: hardens soft labels
 
-    Bu, minjm = my_cmeans(np.array(ch1_X).T, c=c, n_init=re_init, verbose=True)
+    Bu, minjm = my_cmeans(np.array(feat_vect_set[1]).T, c=c, m=myM, n_init=re_init, verbose=True)
     B_lads = np.argmax(Bu, axis=0)
 
-    Cu, minjm = my_cmeans(np.array(ch2_X).T, c=c, n_init=re_init, verbose=True)
+    Cu, minjm = my_cmeans(np.array(feat_vect_set[2]).T, c=c, m=myM, n_init=re_init, verbose=True)
     C_lads = np.argmax(Cu, axis=0)
 
-    Du, minjm = my_cmeans(np.array(ch3_X).T, c=c, n_init=re_init, verbose=True)
+    Du, minjm = my_cmeans(np.array(feat_vect_set[3]).T, c=c, m=myM, n_init=re_init, verbose=True)
     D_lads = np.argmax(Du, axis=0)
 
 
@@ -116,7 +118,7 @@ if __name__ == "__main__":
     print('S9225-2/B1025-1 ARI: ' , ari(B_lads,C_lads))
 
     #print(A_lads)
-
+    #print('Sillhouete value: ', sh(feat_vect_set[2], C_lads))
 
     '''
     Generate some plots
