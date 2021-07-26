@@ -1,4 +1,19 @@
 import numpy as np
+import matplotlib as plt
+import pandas as pd
+from ae_measure2 import *
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.metrics import davies_bouldin_score
+from sklearn.metrics import silhouette_score
+import os
+import glob
+import pylab as pl
+from feature_extraction import *
+
+
+
+import numpy as np
 import matplotlib
 import pylab as pl
 import pandas
@@ -25,8 +40,9 @@ if __name__ == "__main__":
     explained_var = 0.95
     k = 2 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=200)
+    n_drop = 3 #number of features to drop
 
-    experiment = '210316-1'
+    experiment = '210330-1'
     fname_raw = experiment+'_waveforms'
     fname_filter = experiment+'_filter'
 
@@ -66,10 +82,9 @@ if __name__ == "__main__":
 
     vect = []
     for i, channel in enumerate(channels):
-        energy = energies[i]
         channel_vector = []
         for j, wave in enumerate(channel):
-            feature_vector = extract_Moevus_vect(waveform=wave, energy=energy[j])
+            feature_vector, leaf_names = get_wpt_energies(waveform=wave)
             channel_vector.append(feature_vector) # set of all waveforms from channel as a vector
         vect.append(channel_vector) # set of all waveforms from experiment as vector index: i,j,k
 
@@ -79,22 +94,53 @@ if __name__ == "__main__":
     ch2_X = vect[2]
     ch3_X = vect[3]
 
-    feat_vect_set = [ch0_X, ch1_X, ch2_X, ch3_X]
 
-    # NOTE: do rescaling
-    for i, data in enumerate(feat_vect_set):
-        feat_vect_set[i] = max_abs_scaler.fit_transform(data)
+
+    feat_vect_set = [pd.DataFrame(ch0_X, columns = leaf_names),
+        pd.DataFrame(ch1_X, columns = leaf_names),
+        pd.DataFrame(ch2_X, columns = leaf_names),
+        pd.DataFrame(ch3_X, columns = leaf_names)]
 
 
     '''
-    Do PCA mapping on feature vectors and normalize by channel
+    Drop n_drop most correlated features
+    '''
+    dropped_labels = []
+    for i, channel in enumerate(feat_vect_set):
+        for j in range(n_drop):
+            corr_matrix = channel.corr().abs()
+            #the matrix is symmetric so we need to extract upper triangle matrix without diagonal (k = 1)
+            sol = (corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
+                              .stack()
+                              .sort_values(ascending=False)) #first element of sol series is the pair with the biggest correlation
+            label_to_drop = sol.index[0][1] # NOTE: grabs label
+            channel.drop(labels = label_to_drop, axis=1, inplace=True)
+            dropped_labels.append(label_to_drop)
+
+        feat_vect_set[i] = channel.to_numpy().tolist()
+    dropped_labels = np.reshape(dropped_labels, (len(feat_vect_set), n_drop))
+
+
+
+
+    '''
+    Add total energy as calculated by AE aquisition system to features
+    '''
+    for i, channel in enumerate(feat_vect_set):
+        energy = energies[i]
+        for j, vect in enumerate(channel):
+            vect.append(energy[j])
+
+
+
+
+    '''
+    Normalize then do PCA mapping on feature vectors and normalize by channel
     '''
     pca = PCA(explained_var) #Note: determines the number of principal components to explain no less than 0.95 variance
-
     for i, data in enumerate(feat_vect_set):
-        X = pca.fit_transform(data)
-        eigenvalues = pca.explained_variance_
-        feat_vect_set[i] = Moevus_rescale(X, eigenvalues) # NOTE: do rescaling of feature vectors so distances conform to metric in Moevus2008
+        feat_vect_set[i] = pca.fit_transform(max_abs_scaler.fit_transform(data))
+
 
 
     '''
@@ -122,4 +168,4 @@ if __name__ == "__main__":
     '''
     Generate some plots
     '''
-    #plot_cumulative_AE_labeled(B_lads, stress)
+    plot_cumulative_AE_labeled(B_lads, stress)

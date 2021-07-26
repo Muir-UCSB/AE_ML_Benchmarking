@@ -14,8 +14,125 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import davies_bouldin_score
 import pylab as pl
 import matplotlib.ticker as ticker
+from librosa import zero_crossings as zc
+import skfuzzy as fuzz
+import pywt
 
-def extract_Moevus_vect(waveform=[], dt=10**-7, energy=None, low=None, high=None):
+def get_wpt_energies(waveform=[], wavelet='db2', mode='zero', maxlevel=3):
+    '''
+    Extracts partial energies from each leaf of wavelet packet transform, as put forth by
+    Maillet2014
+
+    wave (array-like): single waveform voltage array
+    wavelet (str): Mother wavelet, see pywt for other wavelets
+    mode (str): signal extension mode, affects artifacts at decomposition edges.
+                Choice has not been found to affect results.
+    maxlevel (int): Wavelet decomposition maxlevel
+
+    return:
+    partial_energies (array-like): normalized energy of leaf nodes, sums to 1.
+    '''
+    E_tot = np.sum(np.power(waveform,2))
+
+    wp = pywt.WaveletPacket(data=waveform, wavelet = 'db2', mode = 'zero', maxlevel=3)
+    leaf_names = [n.path for n in wp.get_leaf_nodes(True)]
+    decomposed_signals = [wp[path].data for path in leaf_names]
+
+    partial_energies = [np.sum(np.power(decomp,2))/E_tot for decomp in decomposed_signals]
+
+    return partial_energies, leaf_names
+
+
+
+def my_cmeans(data, c=2, m=2, error=.000005, max_iter=1000, n_init=500, verbose=False):
+    '''
+    c_means with multiple restarts. Inputs inherited from parent function.
+
+    return:
+    u (array-like): u-matrix associated with lowest objective function evaluation
+    minjm (float): lowest objective function evaluation
+    '''
+    jm_history =[]
+    u_history = []
+    for i in range(n_init):
+        cntr, u, u0, d, jm, p, fpc = fuzz.cluster.cmeans(
+            data, c=c, m=2, error=error, maxiter=max_iter) # NOTE: jm is objective function history
+        jm_history.append(jm[-1])
+        u_history.append(u)
+        if verbose==True:
+            print('Restart ',i+1,'/',n_init)
+
+    u = u_history[np.argmin(jm_history)]
+    return u, min(jm_history)
+
+def get_peak_freq(waveform, dt=10**-7, low=None, high=None):
+    '''
+    Gets peak frequency of signal
+
+    waveform (array-like): Voltage time series of the waveform
+    dt (float): Sampling rate of transducers
+
+    return
+    peak_freq (float): frequency of maximum FFT power in Hz
+    '''
+    w, z = fft(dt, waveform, low_pass=low, high_pass=high)
+    max_index = np.argmax(z)
+    peak_freq = w[max_index]
+
+    return peak_freq
+
+def get_signal_start_end(waveform, threshold=0.1):
+    '''
+    Gets indicies of the signal start and end defined by a floating threshold
+
+    waveform (array-like): Voltage time series of the waveform
+    threshold (float): floating threshold that defines signal start and end
+
+    return
+    start_index, end_index (int): Array index of signal start and signal end respectively
+    '''
+    if threshold<0 or threshold>1:
+        raise ValueError('Threshold must be between 0 and 1')
+
+    max_amp = np.max(waveform)
+    start_index, end_index = np.nonzero(waveform > threshold*max_amp)[0][[0, -1]]
+    return start_index, end_index
+
+def get_counts(waveform, threshold=0.1):
+    '''
+    Gets number of counts in AE signal, equiv to number of zero crossings
+
+    waveform (array-like): voltage time-series of the waveform
+    threshold (float): Floating threshold that defines the start and end of signal
+
+    return
+    counts (int): Average frequency of signal in Hz
+    '''
+    imin, imax = get_signal_start_end(waveform)
+    cut_signal = waveform[imin:imax]
+    num_zero_crossings = len(np.nonzero(zc(cut_signal)))
+    return num_zero_crossings
+
+def get_average_freq(waveform, dt=10**-7, threshold=0.1):
+    '''
+    Gets average frequency defined as the number of zero crossings
+    divided by the length of the signal according to Moevus2008
+
+    waveform (array-like): voltage time-series of the waveform
+    dt (float): sampling rate (s)
+
+    threshold (float): Floating threshold that defines the start and end of signal
+
+    return
+    average_frequency (float): Average frequency of signal in Hz
+    '''
+    imin, imax = get_signal_start_end(waveform, threshold=threshold)
+    cut_signal = waveform[imin:imax]
+    num_zero_crossings = len(np.nonzero(zc(cut_signal)))
+
+    return num_zero_crossings/(len(cut_signal)*dt)
+
+def extract_Moevus_vect(waveform=[], dt=10**-7, energy=None, threshold=.1):
     '''
     waveform (array-like): Voltage time series describing the waveform
     dt(float): sampling rate (s)
@@ -33,8 +150,7 @@ def extract_Moevus_vect(waveform=[], dt=10**-7, energy=None, low=None, high=None
     max_amp = np.max(waveform)
     peak_time = np.argmax(waveform)/10 # NOTE: time of signal peak in microseconds
 
-    threshold = .1*max_amp  #Note: floating threshold is 10% of the maximum amplitude
-    imin, imax = np.nonzero(waveform > threshold)[0][[0, -1]]
+    imin, imax = get_signal_start_end(waveform)
     start_time = imin/10 #Note: converts index location to a start time (microseconds)
     end_time = imax/10 #Note: converts index location to an end time (microseconds)
 
@@ -43,29 +159,60 @@ def extract_Moevus_vect(waveform=[], dt=10**-7, energy=None, low=None, high=None
     decay_time = end_time-peak_time
 
     risingpart = waveform[imin:np.argmax(waveform)] #Note: grabs the rising portion of the waveform
-    decaypart = waveform[np.argmax(waveform):imax] #Note: grabs the falling portion of the waveform
 
-    w_rise, z_rise = fft(dt, risingpart, low_pass=low, high_pass=high)
-    rise_freq = get_freq_centroid(w_rise, z_rise)
-
-    w, z = fft(dt, waveform, low_pass=low, high_pass=high)
-    freq_centroid = get_freq_centroid(w, z)
+    average_freq= get_average_freq(waveform, dt=dt, threshold=threshold)
+    rise_freq = get_average_freq(risingpart, dt=dt, threshold=threshold)
 
     log_risetime = np.log(rise_time)
     log_rd = np.log(rise_time/duration)
     log_ar = np.log(max_amp/rise_time)
     log_ad = np.log(max_amp/decay_time)
-    log_af = np.log(max_amp/freq_centroid)
+    log_af = np.log(max_amp/average_freq)
 
-    feature_vector = [log_risetime, freq_centroid, rise_freq, ln_energy, log_rd, log_ar, log_ad, log_af]
+
+    feature_vector = [log_risetime, average_freq, rise_freq, ln_energy, log_rd, log_ar, log_ad, log_af]
     return feature_vector
 
+def extract_Chelliah_vect(waveform=[], dt=10**-7, energy=None, threshold=.1):
+    '''
+    Extracts features from a waveform according to Chelliah2019. Note for the peak frequency
+    calculation we choose to only consider freqeuncies from 300 kHz to 1000 kHz because that is
+    what the s9225 sensors are calibrated for. We can justify this because if a waveform travels the
+    same path from its source to sensor the transfer functions for the sensor with the narrowest
+    calibration range will be the transfer functions for the other sensor, at that frequency. Therefore,
+    the peak frequency of both sensors will match.
+
+    waveform (array-like): Voltage time series describing the waveform
+    dt(float): sampling rate (s)
+    energy (float): energy of the waveform as calculated by the AE software
+    low_pass (float): lower bound on bandpass (Hz)
+    high_pass (float): upper bound on bandpass (Hz)
+
+    return:
+    vect (array-like): feature vector extracted from a waveform according to Chelliah2019
+    '''
+    if waveform == [] or energy == None:
+        raise ValueError('An input is missing')
+
+    low = 300*10**3
+    high = 1000*10**3
+
+    max_amp = np.max(waveform)
+    peak_time = np.argmax(waveform)/10 # NOTE: time of signal peak in microseconds
+
+    imin, imax = get_signal_start_end(waveform)
+    start_time = imin/10 #Note: converts index location to a start time (microseconds)
+    end_time = imax/10 #Note: converts index location to an end time (microseconds)
+
+    rise_time = peak_time - start_time
+    duration = end_time-start_time
+    counts = get_counts(waveform)
+    peak_freq = get_peak_freq(waveform, dt=dt, low=low, high=high)
 
 
 
-
-
-
+    feature_vector = [max_amp, rise_time, counts, energy, duration, peak_freq]
+    return feature_vector
 
 def Moevus_rescale(feat_vect, eigenvalues):
     '''
@@ -78,13 +225,11 @@ def Moevus_rescale(feat_vect, eigenvalues):
     '''
     rescaled_vects = []
     feat_vect = feat_vect.T
+
     for i, value in enumerate(eigenvalues):
         rescaled_vects.append(feat_vect[i]*np.sqrt(value))
 
     return np.array(rescaled_vects).T
-
-
-
 
 def plot_cumulative_AE(stress, color='black', show=True, save_as=False):
     '''
@@ -123,8 +268,6 @@ def plot_cumulative_AE(stress, color='black', show=True, save_as=False):
 
     if type(save_as) is str:
         pl.savefig(save_as)
-
-
 
 def plot_cumulative_AE_labeled(label_set, stress, colormap = 'Set1', show=True, save_as=None):
     '''
@@ -178,9 +321,6 @@ def plot_cumulative_AE_labeled(label_set, stress, colormap = 'Set1', show=True, 
     if type(save_as) is str:
         pl.savefig(save_as)
 
-
-
-
 def get_DBI(feat_vect, max_clust=int):
     '''
     Grabs DBI as clustered via kmeans as a function of number of clusters.
@@ -205,3 +345,29 @@ def get_DBI(feat_vect, max_clust=int):
     dbscores = np.array(dbscores)
 
     return n_clust, dbscores
+
+def get_cmeans_DBI(feat_vect, max_clust=int, verbose=True):
+        '''
+        Grabs DBI as clustered via kmeans as a function of number of clusters.
+            n_init for kmeans is 200
+
+        vects (array-like): Takes a set of feature vectors
+            (i.e. 4-channels [chA, chB,...])
+        max_clust (int): Maximum number of clusters to grab DBI from
+        verbose (bool): If true, print percentage done (under construction)
+
+        return:
+        n_clust (array-like): list of
+        '''
+        dbscores = []
+        n_clust = np.arange(max_clust+1)
+        n_clust = n_clust[2::]
+
+        for cluster in n_clust:
+            u, minjm = my_cmeans(np.array(feat_vect).T, c=cluster, verbose=verbose)
+            labels = np.argmax(u, axis=0) # NOTE: hardens soft labels
+            DBI = davies_bouldin_score(feat_vect, labels)
+            dbscores.append(DBI)
+        dbscores = np.array(dbscores)
+
+        return n_clust, dbscores
