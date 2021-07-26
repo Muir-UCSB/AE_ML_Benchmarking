@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
 
     '''
-    # # TODO: normalize data to 0 mean and unit variance
+    # TODO: normalize data to 0 mean and unit variance
     '''
 
 
