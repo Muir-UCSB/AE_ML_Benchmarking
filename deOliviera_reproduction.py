@@ -11,7 +11,8 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import davies_bouldin_score
 from minisom import MiniSom
-
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import adjusted_rand_score as ari
 if __name__ == "__main__":
 
 
@@ -26,12 +27,13 @@ if __name__ == "__main__":
     explained_var = 0.95
     k = 5 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=200)
+    myScaler = StandardScaler()
 
     n_neurons = 9
     m_neurons = 9
-    max_som_iter = 1000
-    sig = 3 # NOTE: neighborhood function
-    alpha = .5 # NOTE: learning rate
+    max_som_iter = 2000000
+    sig = .88 # NOTE: neighborhood function
+    alpha = 2.2 # NOTE: learning rate
 
     fname_raw = '210308-1_waveforms'
     fname_filter = '210308-1_filter'
@@ -77,11 +79,15 @@ if __name__ == "__main__":
         feat_vect_set.append(channel_vector) # set of all feature vectors from experiment, index: i,j,k is (channel, feature vector, feature)
 
 
-
+    dims = np.array(feat_vect_set[0]).shape[1]
 
     '''
     # TODO: normalize data to 0 mean and unit variance
     '''
+    for i, data in enumerate(feat_vect_set):
+        feat_vect_set[i] = myScaler.fit_transform(data)
+
+
 
 
     '''
@@ -91,7 +97,8 @@ if __name__ == "__main__":
 
 
 
-    dims = np.array(feat_vect_set[0]).shape[1] # TODO: rename to ch0_dims
+
+
 
 
     # Initialization and training
@@ -99,7 +106,7 @@ if __name__ == "__main__":
     # NOTE: quantization error is average difference of output samples to winning neurons, https://www.intechopen.com/chapters/69305
 
     '''
-    train SOM
+    train SOM1
     '''
 
     som = MiniSom(n_neurons, m_neurons, dims, sigma=sig, learning_rate=alpha,
@@ -125,5 +132,3 @@ if __name__ == "__main__":
         winner = som.winner(feature_vect) # NOTE: get winning neurons
         label = A_lads[winner[0]][winner[1]]# NOTE: get label of winning neurons
         ch0_labels[i]=label
-
-    plot_cumulative_AE_labeled(ch0_labels, stress)
