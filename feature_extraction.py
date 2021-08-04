@@ -12,11 +12,40 @@ from ae_measure2 import *
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import davies_bouldin_score
+from sklearn.metrics import silhouette_score
 import pylab as pl
 import matplotlib.ticker as ticker
 from librosa import zero_crossings as zc
 import skfuzzy as fuzz
 import pywt
+
+
+def get_partial_pow(waveform=[], lower_bound=None, upper_bound=None, dt = 10**-7):
+    '''
+    Gets partial power of signal from waveform from f_0 to f_1
+
+    :param waveform: (array-like) Voltage time series of the waveform
+    :param lower_bound: (float) Lower bound of partial power in Hz
+    :param upper_bound: (float) Upper bound of partial power in Hz
+    :param dt: (float) Time between samples (s) (also inverse of sampling rate)
+
+    :return pow: (float) Partial power
+    '''
+    if lower_bound is None or upper_bound is None:
+        raise ValueError('Partial power bounds not defined')
+
+    w, z = fft(dt, waveform)
+    total_pow = np.sum(z)
+
+    pow = np.sum(z[np.where((w>=lower_bound) & (w<upper_bound))])
+    partial_pow = pow/total_pow
+
+    return partial_pow
+
+
+
+
+
 
 def get_wpt_energies(waveform=[], wavelet='db2', mode='zero', maxlevel=3):
     '''
@@ -56,7 +85,7 @@ def my_cmeans(data, c=2, m=2, error=.000005, max_iter=1000, n_init=500, verbose=
     u_history = []
     for i in range(n_init):
         cntr, u, u0, d, jm, p, fpc = fuzz.cluster.cmeans(
-            data, c=c, m=2, error=error, maxiter=max_iter) # NOTE: jm is objective function history
+            data, c=c, m=m, error=error, maxiter=max_iter) # NOTE: jm is objective function history
         jm_history.append(jm[-1])
         u_history.append(u)
         if verbose==True:
@@ -70,7 +99,7 @@ def get_peak_freq(waveform, dt=10**-7, low=None, high=None):
     Gets peak frequency of signal
 
     waveform (array-like): Voltage time series of the waveform
-    dt (float): Sampling rate of transducers
+    dt (float): Time between samples (s) (also inverse of sampling rate)
 
     return
     peak_freq (float): frequency of maximum FFT power in Hz
@@ -119,7 +148,7 @@ def get_average_freq(waveform, dt=10**-7, threshold=0.1):
     divided by the length of the signal according to Moevus2008
 
     waveform (array-like): voltage time-series of the waveform
-    dt (float): sampling rate (s)
+    dt (float): spacing between time samples (s)
 
     threshold (float): Floating threshold that defines the start and end of signal
 
@@ -132,10 +161,54 @@ def get_average_freq(waveform, dt=10**-7, threshold=0.1):
 
     return num_zero_crossings/(len(cut_signal)*dt)
 
+
+def extract_Sause_vect(waveform=[], dt=10**-7, threshold=.1):
+    '''
+    waveform (array-like): Voltage time series describing the waveform
+    dt(float): Spacing between time samples (s)
+    energy (float): energy of the waveform as calculated by the AE software
+    low_pass (float): lower bound on bandpass (Hz)
+    high_pass (float): upper bound on bandpass (Hz)
+
+    return:
+    vect (array-like): feature vector extracted from a waveform according to Moevus2008
+    '''
+    if waveform == []:
+        raise ValueError('An input is missing')
+
+    imin, imax = get_signal_start_end(waveform)
+
+    risingpart = waveform[imin:np.argmax(waveform)] #Note: grabs the rising portion of the waveform
+    fallingpart = waveform[np.argmax(waveform):imax] #Note: grabs the falling portion of the waveform
+
+    average_freq= get_average_freq(waveform, dt=dt, threshold=threshold)
+    rise_freq = get_average_freq(risingpart, dt=dt, threshold=threshold)
+    reverb_freq = get_average_freq(fallingpart, dt=dt, threshold=threshold)
+
+    w, z = fft(dt, waveform[imin:imax])
+    freq_centroid = get_freq_centroid(w,z)
+
+    peak_freq = get_peak_freq(waveform[imin:imax])
+    wpf = np.sqrt(freq_centroid*peak_freq)
+
+    pp1 = get_partial_pow(waveform[imin:imax], lower_bound=0, upper_bound=150*10**3)
+    pp2 = get_partial_pow(waveform[imin:imax], lower_bound=150*10**3, upper_bound=300*10**3)
+    pp3 = get_partial_pow(waveform[imin:imax], lower_bound=300*10**3, upper_bound=450*10**3)
+    pp4 = get_partial_pow(waveform[imin:imax], lower_bound=450*10**3, upper_bound=600*10**3)
+    pp5 = get_partial_pow(waveform[imin:imax], lower_bound=600*10**3, upper_bound=900*10**3)
+    pp6 = get_partial_pow(waveform[imin:imax], lower_bound=900*10**3, upper_bound=1200*10**3)
+
+
+
+    feature_vector = [average_freq, reverb_freq, freq_centroid, rise_freq, peak_freq, wpf, pp1, pp2, pp3, pp4, pp5, pp6]
+    return feature_vector
+
+
+
 def extract_Moevus_vect(waveform=[], dt=10**-7, energy=None, threshold=.1):
     '''
     waveform (array-like): Voltage time series describing the waveform
-    dt(float): sampling rate (s)
+    dt(float): Spacing between time samples (s)
     energy (float): energy of the waveform as calculated by the AE software
     low_pass (float): lower bound on bandpass (Hz)
     high_pass (float): upper bound on bandpass (Hz)
@@ -183,7 +256,7 @@ def extract_Chelliah_vect(waveform=[], dt=10**-7, energy=None, threshold=.1):
     the peak frequency of both sensors will match.
 
     waveform (array-like): Voltage time series describing the waveform
-    dt(float): sampling rate (s)
+    dt(float): time between samples (s)
     energy (float): energy of the waveform as calculated by the AE software
     low_pass (float): lower bound on bandpass (Hz)
     high_pass (float): upper bound on bandpass (Hz)
@@ -321,7 +394,7 @@ def plot_cumulative_AE_labeled(label_set, stress, colormap = 'Set1', show=True, 
     if type(save_as) is str:
         pl.savefig(save_as)
 
-def get_DBI(feat_vect, max_clust=int):
+def get_DBI(feat_vect, max_clust=int, verbose=False):
     '''
     Grabs DBI as clustered via kmeans as a function of number of clusters.
         n_init for kmeans is 200
@@ -338,10 +411,14 @@ def get_DBI(feat_vect, max_clust=int):
     n_clust = n_clust[2::]
 
     for cluster in n_clust:
-        kmeans = KMeans(n_clusters=cluster, n_init=200).fit(feat_vect)
+        kmeans = KMeans(n_clusters=cluster, n_init=2000).fit(feat_vect)
+        if verbose is True:
+            print('Cluster: ', cluster)
         labels = kmeans.labels_
         DBI = davies_bouldin_score(feat_vect, labels)
         dbscores.append(DBI)
+    if verbose is True:
+        print('Complete')
     dbscores = np.array(dbscores)
 
     return n_clust, dbscores
@@ -371,3 +448,32 @@ def get_cmeans_DBI(feat_vect, max_clust=int, verbose=True):
         dbscores = np.array(dbscores)
 
         return n_clust, dbscores
+
+def get_SV(feat_vect, max_clust=int, verbose=False):
+    '''
+    Grabs silhouette_score as clustered via kmeans as a function of number of clusters.
+        n_init for kmeans is 2000
+
+    vects (array-like): Takes a set of feature vectors
+        (i.e. 4-channels [chA, chB,...])
+    max_clust (int): Maximum number of clusters to grab DBI from
+
+    return:
+    n_clust (array-like): list of
+    '''
+    svscores = []
+    n_clust = np.arange(max_clust+1)
+    n_clust = n_clust[2::]
+
+    for cluster in n_clust:
+        kmeans = KMeans(n_clusters=cluster, n_init=2000).fit(feat_vect)
+        if verbose is True:
+            print('Cluster: ', cluster)
+        labels = kmeans.labels_
+        SV = silhouette_score(feat_vect, labels)
+        svscores.append(SV)
+    if verbose is True:
+        print('Complete')
+    svscores = np.array(svscores)
+
+    return n_clust, svscores
