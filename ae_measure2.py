@@ -14,9 +14,33 @@ import pandas
 from scipy.stats import linregress
 from scipy.integrate import simps
 from librosa import zero_crossings as zc
+import json
 
 nan = float('nan')
 inf = float('inf')
+
+
+
+def load_PLB(path=None):
+    '''
+    :param path: (str) path name the PLB_data.json file is located at.
+
+    :return data: Dictionary-like with the following attributes:
+                data : {ndarray} of shape (N, 1024)
+                target : {ndarray} of shape (N, )
+                target_angle : The angle corresponding to the target
+
+    '''
+    if path is None:
+        raise ValueError('Please input path name')
+
+    with open(path) as json_file:
+        PLB = json.load(json_file)
+
+    for key in PLB.keys():
+        PLB[key]  = np.array(PLB[key])
+    return PLB
+
 
 def read_ae_file2(fname, channel_num, sig_length=1024):
     '''
@@ -54,6 +78,7 @@ def filter_ae(ae_file, filter_csv, channel_num, sig_length=1024):
     v1 = np.array(v1)
     v1 = v1[ev-1]
     return v1, ev
+
 
 
 
