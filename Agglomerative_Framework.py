@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     sig_len = 1024
     k = 2 # NOTE: number of clusters
-    agglomerative = AgglomerativeClustering(linkage='ward', n_clusters=k)
+    agglomerative = AgglomerativeClustering(linkage='Ward', n_clusters=k)
 
 
     '''

@@ -51,7 +51,7 @@ if __name__ == "__main__":
     datapath = 'E:/Research/Framework_Benchmarking/Data/PLB_data.json'
 
     ref_index = 0 # NOTE: 20 degree has label 0
-    exp_index = 1 # NOTE: 26 degree has label 1, subject to change
+    exp_index = 3 # NOTE: 26 degree has label 1, subject to change
 
 
     data = load_PLB(datapath)
@@ -83,13 +83,13 @@ if __name__ == "__main__":
     Parameters
     '''
     k = 2
-    NN = 20
+    NN = 5
 
     dt = 10**-7 #s
-    Low = 300*10**3 #Hz
-    High = 1200*10**3 #Hz
+    Low = 00*10**3 #Hz
+    High = 450*10**3 #Hz
 
-    num_bins = np.arange(3,30)
+    num_bins = np.arange(2,30)
     print(num_bins)
 
 

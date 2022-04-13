@@ -20,44 +20,42 @@ if __name__ == "__main__":
     Set hyperparameters
     '''
 
-    os.chdir('E:/Research/Framework_Comparison')
+    os.chdir('E:/Research/Framework_Benchmarking')
 
     sig_len = 1024
     explained_var = 0.95
     k = 3 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=20000)
-
-    experiment = '210330-1'
-    fname_raw = experiment+'_waveforms'
-    fname_filter = experiment+'_filter'
-
     max_abs_scaler = MaxAbsScaler() # NOTE: normalize between -1 and 1
 
 
     '''
     Read-in and Setup
     '''
-    raw = glob.glob('./Raw_Data/'+experiment+'/'+fname_raw+'.txt')[0]
-    filter = glob.glob('./Filtered_Data/'+experiment+'/'+fname_filter+'.csv')[0]
+    sig_len = 1024
+    datapath = 'E:/Research/Framework_Benchmarking/Data/PLB_data.json'
 
-    csv = pd.read_csv(filter)
-    time = np.array(csv.Time)
-    stress = np.array(csv.Adjusted_Stress_MPa)
+    ref_index = 0 # NOTE: 20 degree has label 0
+    exp_index = 3 # NOTE: 26 degree has label 1, subject to change
 
-    en_ch1 = np.array(csv.Energy_ch1)
-    en_ch2 = np.array(csv.Energy_ch2)
-    en_ch3 = np.array(csv.Energy_ch3)
-    en_ch4 = np.array(csv.Energy_ch4)
+    data = load_PLB(datapath)
 
-    energies = [en_ch1, en_ch2, en_ch3, en_ch4] # NOTE: set up energy list to parse by channel
+    waves = data['data']
+    target = data['target']
+    angles = data['target_angle']
+    energy = data['energy']
 
+    reference_waves = waves[np.where(target==ref_index)]
+    reference_labels = target[np.where(target==ref_index)]
+    reference_energy = energy[np.where(target==ref_index)]
 
-    v0, ev = filter_ae(raw, filter, channel_num=0, sig_length=sig_len) # S9225
-    v1, ev = filter_ae(raw, filter, channel_num=1, sig_length=sig_len) # S9225
-    v2, ev = filter_ae(raw, filter, channel_num=2, sig_length=sig_len) # B1025
-    v3, ev = filter_ae(raw, filter, channel_num=3, sig_length=sig_len) # B1025
+    experiment_waves = waves[np.where(target==exp_index)]
+    experiment_labels = target[np.where(target==exp_index)]
+    experiment_energy = energy[np.where(target==exp_index)]
 
-    channels = [v0, v1, v2, v3] # NOTE: set up waveform list to parse by channel
+    wave_set = np.vstack((reference_waves, experiment_waves))
+    ground_truth = np.hstack((reference_labels, experiment_labels))
+    energy_set = np.hstack((reference_energy,experiment_energy))
 
 
 
@@ -65,21 +63,14 @@ if __name__ == "__main__":
     Cast experiment as vectors
     '''
 
-    feat_vect_set = []
-    for i, channel in enumerate(channels):
-        energy = energies[i]
-        channel_vector = []
-        for j, wave in enumerate(channel):
-            feature_vector = extract_Moevus_vect(waveform=wave, energy=energy[j])
-            channel_vector.append(feature_vector) # set of all waveforms from channel as a vector
-        feat_vect_set.append(channel_vector) # set of all waveforms from experiment as vector index: i,j,k
-
-
+    vect = []
+    for i, wave in enumerate(wave_set):
+        feature_vector = extract_Moevus_vect(waveform=wave, energy=energy_set[i])
+        vect.append(feature_vector) # set of all waveforms from channel as a vector
 
 
     # NOTE: do rescaling
-    for i, data in enumerate(feat_vect_set):
-        feat_vect_set[i] = max_abs_scaler.fit_transform(data)
+    vect = max_abs_scaler.fit_transform(vect)
 
 
     '''
@@ -87,42 +78,19 @@ if __name__ == "__main__":
     '''
     pca = PCA(explained_var) #Note: determines the number of principal components to explain no less than 0.95 variance
 
-    for i, data in enumerate(feat_vect_set):
-        X = pca.fit_transform(data)
-        eigenvalues = pca.explained_variance_
-        feat_vect_set[i] = Moevus_rescale(X, eigenvalues) # NOTE: do rescaling of feature vectors so distances conform to metric in Moevus2008
+
+    X = pca.fit_transform(vect)
+    eigenvalues = pca.explained_variance_
+    vect = Moevus_rescale(X, eigenvalues) # NOTE: do rescaling of feature vectors so distances conform to metric in Moevus2008
 
 
     '''
     Do k-means clustering on channels A,B,C, and D
     '''
-    clustered_channels = []
-    for channel_data in feat_vect_set:
-        clustered_channels.append(kmeans.fit(channel_data).labels_)
-        print(kmeans.n_iter_)
+    print('Beginning clustering')
+    labels = kmeans.fit(vect).labels_
+    print(kmeans.n_iter_)
 
 
 
-    A_lads = clustered_channels[0] # NOTE: labels
-    B_lads = clustered_channels[1]
-    C_lads = clustered_channels[2]
-    D_lads = clustered_channels[3]
-
-    print('S9225 ARI: ', ari(A_lads,B_lads))
-    print('B1025 ARI: ', ari(C_lads, D_lads))
-    print('Left ARI: ', ari(A_lads,C_lads))
-    print('Right ARI: ', ari(B_lads, D_lads))
-    print('S9225-1/B1025-2 ARI: ' , ari(A_lads,D_lads))
-    print('S9225-2/B1025-1 ARI: ' , ari(B_lads,C_lads))
-
-    #df = pd.DataFrame({'Stress': stress, 'Ch_A': A_lads, 'Ch_B': B_lads, 'Ch_C': C_lads, 'Ch_D': D_lads})
-    #df.to_csv(r'Base_framework_labels.csv')
-
-    '''
-    Generate some plots
-    '''
-
-    plot_cumulative_AE_labeled(A_lads, stress)
-    plot_cumulative_AE_labeled(B_lads, stress)
-    plot_cumulative_AE_labeled(C_lads, stress)
-    plot_cumulative_AE_labeled(D_lads, stress)
+    print('ARI: ', ari(labels, ground_truth))
