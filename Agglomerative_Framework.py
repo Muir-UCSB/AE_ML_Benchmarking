@@ -32,7 +32,7 @@ if __name__ == "__main__":
     datapath = 'E:/Research/Framework_Benchmarking/Data/PLB_data.json'
 
     ref_index = 0 # NOTE: 20 degree has label 0
-    exp_index = 1 # NOTE: 26 degree has label 1, subject to change
+    exp_index = 3 # NOTE: 26 degree has label 1, subject to change
 
     data = load_PLB(datapath)
 
@@ -74,6 +74,15 @@ if __name__ == "__main__":
     print('Beginning clustering')
     labels = agglomerative.fit(vect).labels_
 
-
-
     print('ARI: ', ari(labels, ground_truth))
+
+    '''
+    vect = np.array(vect)
+    vect = vect.T
+    x=vect[1]
+    y = vect[0]
+
+
+    pl.scatter(x,y,c=ground_truth)
+    pl.show()
+    '''
