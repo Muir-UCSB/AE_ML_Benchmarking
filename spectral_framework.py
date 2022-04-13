@@ -50,8 +50,8 @@ if __name__ == "__main__":
     os.chdir('E:/Research/Framework_Benchmarking')
     datapath = 'E:/Research/Framework_Benchmarking/Data/PLB_data.json'
 
-    ref_index = 1 # NOTE: 20 degree has label 0
-    exp_index = 3 # NOTE: 26 degree has label 1, subject to change
+    ref_index = 0 # NOTE: 20 degree has label 0
+    exp_index = 1 # NOTE: 26 degree has label 1, subject to change
 
 
     data = load_PLB(datapath)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
 
 
-    wave_set = np.vstack((reference, experiment))
+    wave_set = np.vstack((reference_waves, experiment_waves))
     ground_truth = np.hstack((reference_labels, experiment_labels))
     energy_set = np.hstack((reference_energy,experiment_energy))
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     NN = 20
 
     dt = 10**-7 #s
-    Low = 400*10**3 #Hz
+    Low = 300*10**3 #Hz
     High = 1200*10**3 #Hz
 
     num_bins = np.arange(3,30)
@@ -100,9 +100,7 @@ if __name__ == "__main__":
 
     spectral = SpectralClustering(n_clusters=k, n_init=100, eigen_solver='arpack'
                                     ,affinity="nearest_neighbors",  n_neighbors=NN)
-    kmeans = KMeans(n_clusters=k, n_init=200)
-    #spectral_NN_10 = SpectralClustering(n_clusters=k, n_init=100, eigen_solver='arpack'
-                                    #,affinity="nearest_neighbors",  n_neighbors=10)
+
     '''
     Cast experiment as vectors
     '''
@@ -115,15 +113,10 @@ if __name__ == "__main__":
 
 
         # Cluster waveform
-        #spectral_A = spectral.fit(vect)
-        #A_lads = spectral_A.labels_
-        kmeans_A = kmeans.fit(vect)
-        A_lads = kmeans_A.labels_
+        spectral = spectral.fit(vect)
+        labels = spectral.labels_
 
 
-        #print('Bin spacing (kHz): ' , spacing)
-        # print('Frequency resolution (kHz): ' , dw)
 
-        #print('')
 
-        print(bins, 'ARI: ', ari(A_lads, ground_truth))
+        print(bins, 'ARI: ', ari(labels, ground_truth))
