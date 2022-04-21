@@ -50,7 +50,7 @@ if __name__ == "__main__":
     for i, signal in enumerate(FFT):
         FFT[i] = butter_bandpass_filter(signal, Low, High, fs)
         w, FFT[i] = fft(dt, FFT[i], low_pass=Low, high_pass=High)
-        #FFT[i] = FFT[i]/max(FFT[i])
+        FFT[i] = FFT[i]/max(FFT[i])
 
 
 
