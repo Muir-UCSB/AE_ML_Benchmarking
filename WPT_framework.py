@@ -19,44 +19,45 @@ if __name__ == "__main__":
     Set hyperparameters
     '''
 
-    os.chdir('E:/Research/Framework_Benchmarking')
+    os.chdir('C:/Research/Framework_Benchmarking')
 
     sig_len = 1024
     explained_var = 0.95
     k = 2 # NOTE: number of clusters
     kmeans = KMeans(n_clusters=k, n_init=20000)
     n_drop = 3 #number of features to drop
+
+    reference_index = 0
+    test_index = 4
+
+
+
     max_abs_scaler = MaxAbsScaler() # NOTE: normalize between -1 and 1
 
 
     '''
     Read-in and Setup
     '''
-    sig_len = 1024
-    datapath = 'E:/Research/Framework_Benchmarking/Data/PLB_data.json'
-
-    ref_index = 0 # NOTE: 20 degree has label 0
-    exp_index = 3 # NOTE: 26 degree has label 1, subject to change
-
-    data = load_PLB(datapath)
-
+    mypath = 'C:/Research/Framework_Benchmarking/Data/PLB_data.json'
+    data = load_PLB(mypath)
     waves = data['data']
-    target = data['target']
+    targets = data['target']
     angles = data['target_angle']
     energy = data['energy']
 
-    reference_waves = waves[np.where(target==ref_index)]
-    reference_labels = target[np.where(target==ref_index)]
-    reference_energy = energy[np.where(target==ref_index)]
 
-    experiment_waves = waves[np.where(target==exp_index)]
-    experiment_labels = target[np.where(target==exp_index)]
-    experiment_energy = energy[np.where(target==exp_index)]
 
-    wave_set = np.vstack((reference_waves, experiment_waves))
-    ground_truth = np.hstack((reference_labels, experiment_labels))
-    energy_set = np.hstack((reference_energy,experiment_energy))
+    reference_energies = energy[np.where(targets==reference_index)]
+    test_energies = energy[np.where(targets==test_index)]
+    energy_set = np.hstack((reference_energies, test_energies))
 
+    reference_waves = waves[np.where(targets==reference_index)]
+    test_waves = waves[np.where(targets==test_index)]
+    wave_set = np.vstack((reference_waves, test_waves))
+
+    reference_targets  = targets[np.where(targets==reference_index)]
+    test_targets  = targets[np.where(targets==test_index)]
+    target_set = np.hstack((reference_targets, test_targets))
 
 
 
@@ -65,11 +66,12 @@ if __name__ == "__main__":
     '''
 
     vect = []
-
-
-    for wave in wave_set:
+    for j, wave in enumerate(wave_set):
         feature_vector, leaf_names = get_wpt_energies(waveform=wave)
         vect.append(feature_vector) # set of all waveforms from channel as a vector
+
+    # NOTE: set of feature vectors by channel
+
 
 
 
@@ -101,9 +103,8 @@ if __name__ == "__main__":
     Add total energy as calculated by AE aquisition system to features
     '''
 
-    for i, energy in enumerate(energy_set):
-        vect[i].append(energy)
-
+    for i, vector in enumerate(vect):
+        vector.append(energy_set[i])
 
 
 
@@ -123,8 +124,11 @@ if __name__ == "__main__":
     Do k-means clustering on channels A,B,C, and D
     '''
     print('Beginning clustering')
-
     labels = kmeans.fit(vect).labels_
-    #print(kmeans.n_iter_)
+    print('ARI: ', ari(labels,target_set))
+    print('Benchmark angle:', angles[test_index])
 
-    print('ARI: ', ari(labels, ground_truth))
+
+
+    #df = pd.DataFrame({'Stress': stress, 'Ch_A': A_lads, 'Ch_B': B_lads, 'Ch_C': C_lads, 'Ch_D': D_lads})
+    #df.to_csv(r'WPT_framework_labels.csv')

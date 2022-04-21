@@ -19,12 +19,15 @@ if __name__ == "__main__":
     '''
     Set hyperparameters
     '''
+    reference_index = 0
+    exp_index = 2
 
-    os.chdir('E:/Research/Framework_Benchmarking')
+    os.chdir('C:/Research/Framework_Benchmarking')
 
     sig_len = 1024
     explained_var = 0.95
-    k = 3 # NOTE: number of clusters
+    k = 2 # NOTE: number of clusters
+
     kmeans = KMeans(n_clusters=k, n_init=20000)
     max_abs_scaler = MaxAbsScaler() # NOTE: normalize between -1 and 1
 
@@ -32,30 +35,28 @@ if __name__ == "__main__":
     '''
     Read-in and Setup
     '''
-    sig_len = 1024
-    datapath = 'E:/Research/Framework_Benchmarking/Data/PLB_data.json'
-
-    ref_index = 0 # NOTE: 20 degree has label 0
-    exp_index = 3 # NOTE: 26 degree has label 1, subject to change
-
-    data = load_PLB(datapath)
-
+    mypath = 'C:/Research/Framework_Benchmarking/Data/PLB_data.json'
+    data = load_PLB(mypath)
     waves = data['data']
-    target = data['target']
+    targets = data['target']
     angles = data['target_angle']
     energy = data['energy']
 
-    reference_waves = waves[np.where(target==ref_index)]
-    reference_labels = target[np.where(target==ref_index)]
-    reference_energy = energy[np.where(target==ref_index)]
 
-    experiment_waves = waves[np.where(target==exp_index)]
-    experiment_labels = target[np.where(target==exp_index)]
-    experiment_energy = energy[np.where(target==exp_index)]
 
-    wave_set = np.vstack((reference_waves, experiment_waves))
-    ground_truth = np.hstack((reference_labels, experiment_labels))
-    energy_set = np.hstack((reference_energy,experiment_energy))
+    reference_energies = energy[np.where(targets==reference_index)]
+    test_energies = energy[np.where(targets==exp_index)]
+    energy_set = np.hstack((reference_energies, test_energies))
+
+    reference_waves = waves[np.where(targets==reference_index)]
+    test_waves = waves[np.where(targets==exp_index)]
+    wave_set = np.vstack((reference_waves, test_waves))
+
+    reference_targets  = targets[np.where(targets==reference_index)]
+    test_targets  = targets[np.where(targets==exp_index)]
+    target_set = np.hstack((reference_targets, test_targets))
+
+
 
 
 
@@ -66,18 +67,17 @@ if __name__ == "__main__":
     vect = []
     for i, wave in enumerate(wave_set):
         feature_vector = extract_Moevus_vect(waveform=wave, energy=energy_set[i])
-        vect.append(feature_vector) # set of all waveforms from channel as a vector
-
+        vect.append(feature_vector) # set of all waveforms from experiment as vector index: i,j,k
 
     # NOTE: do rescaling
     vect = max_abs_scaler.fit_transform(vect)
+
 
 
     '''
     Do PCA mapping on feature vectors and normalize by channel
     '''
     pca = PCA(explained_var) #Note: determines the number of principal components to explain no less than 0.95 variance
-
 
     X = pca.fit_transform(vect)
     eigenvalues = pca.explained_variance_
@@ -89,8 +89,11 @@ if __name__ == "__main__":
     '''
     print('Beginning clustering')
     labels = kmeans.fit(vect).labels_
-    print(kmeans.n_iter_)
+    print('number of iterations:', kmeans.n_iter_)
 
 
 
-    print('ARI: ', ari(labels, ground_truth))
+
+
+    print('ARI: ', ari(labels, target_set))
+    print('Benchmark angle:', angles[exp_index])

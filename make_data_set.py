@@ -24,8 +24,8 @@ if __name__ == "__main__":
     Read-in and Setup
     '''
     sig_len = 1024
-    data_directory = 'E:/Research/Framework_Benchmarking/Data/220405_data_files/'
-    write_directory = 'E:/Research/Framework_Benchmarking/Data/'
+    data_directory = 'C:/Research/Framework_Benchmarking/Data/220405_data_files/'
+    write_directory = 'C:/Research/Framework_Benchmarking/Data/'
     write_to = 'PLB_data.json'
 
 
@@ -50,7 +50,6 @@ if __name__ == "__main__":
     for i, angle in enumerate(target_angle):
         newfiles = [f for f in onlyfiles if angle in f] # NOTE: gets list of files with XXangle in fname
         for j, file in enumerate(newfiles):
-            print(file)
             if 'wave' in file:
                 raw = file
             elif 'filter' in file:

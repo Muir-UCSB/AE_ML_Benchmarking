@@ -65,6 +65,23 @@ def optimize_SOM_hyperparameters(data, sig_range, alpha_range, resolution, neuro
     min_quant_error = minimum[2]
     return sigma_opt, alpha_opt, min_quant_error
 
+def extract_agglomerative_vect(waveform=[], dt=10**-7, threshold=.1):
+    '''
+    waveform (array-like): Voltage time series describing the waveform
+    dt(float): Spacing between time samples (s)
+
+    return:
+    vect (array-like): feature vector extracted from a waveform according to Moevus2008
+    '''
+    if waveform == []:
+        raise ValueError('An input is missing')
+
+    imin, imax = get_signal_start_end(waveform)
+    peak_freq = get_peak_freq(waveform[imin:imax])
+    max_amp = np.max(waveform)
+
+    feature_vector = [peak_freq, max_amp]
+    return feature_vector
 
 
 def get_partial_pow(waveform=[], lower_bound=None, upper_bound=None, dt = 10**-7):
@@ -241,9 +258,11 @@ def extract_Sause_vect(waveform=[], dt=10**-7, threshold=.1):
     pp5 = get_partial_pow(waveform[imin:imax], lower_bound=600*10**3, upper_bound=900*10**3)
     pp6 = get_partial_pow(waveform[imin:imax], lower_bound=900*10**3, upper_bound=1200*10**3)
 
+    #feature_vector = [pp1, pp2]
+    #feature_vector = [average_freq, reverb_freq, freq_centroid, rise_freq, peak_freq, wpf, pp1, pp2, pp3]
 
+    feature_vector = [average_freq, reverb_freq, rise_freq, peak_freq, freq_centroid, wpf, pp1, pp2, pp3, pp4, pp5, pp6]
 
-    feature_vector = [average_freq, reverb_freq, freq_centroid, rise_freq, peak_freq, wpf, pp1, pp2, pp3, pp4, pp5, pp6]
     return feature_vector
 
 def extract_SOM_vect(waveform=[], dt=10**-7, energy=None, threshold=.1):
@@ -316,8 +335,9 @@ def extract_Moevus_vect(waveform=[], dt=10**-7, energy=None, threshold=.1):
     log_ad = np.log(max_amp/decay_time)
     log_af = np.log(max_amp/average_freq)
 
-
     feature_vector = [log_risetime, average_freq, rise_freq, ln_energy, log_rd, log_ar, log_ad, log_af]
+    #feature_vector = [ln_energy]
+
     return feature_vector
 
 def extract_FCM_vect(waveform=[], dt=10**-7, energy=None, threshold=.1):

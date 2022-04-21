@@ -2,11 +2,8 @@
 Author: Caelin Muir
 Contact: muir@ucsb.edu
 Version: 210518
-
 This script takes in a file path with one experiment as text file
 It clusters with k=2
-
-
 '''
 
 #Imports
@@ -47,11 +44,11 @@ if __name__ == "__main__":
     Read-in and Setup
     '''
     sig_len = 1024
-    os.chdir('E:/Research/Framework_Benchmarking')
-    datapath = 'E:/Research/Framework_Benchmarking/Data/PLB_data.json'
+    os.chdir('C:/Research/Framework_Benchmarking')
+    datapath = 'C:/Research/Framework_Benchmarking/Data/PLB_data.json'
 
-    ref_index = 0 # NOTE: 20 degree has label 0
-    exp_index = 3 # NOTE: 26 degree has label 1, subject to change
+    ref_index = 3 # NOTE: 20 degree has label 0
+    exp_index = 4 # NOTE: 26 degree has label 1, subject to change
 
 
     data = load_PLB(datapath)
@@ -76,6 +73,7 @@ if __name__ == "__main__":
     ground_truth = np.hstack((reference_labels, experiment_labels))
     energy_set = np.hstack((reference_energy,experiment_energy))
 
+    print(len(reference_waves), len(experiment_waves))
 
 
 
@@ -86,8 +84,8 @@ if __name__ == "__main__":
     NN = 5
 
     dt = 10**-7 #s
-    Low = 00*10**3 #Hz
-    High = 450*10**3 #Hz
+    Low = 200*10**3 #Hz
+    High = 800*10**3 #Hz
 
     num_bins = np.arange(2,30)
     print(num_bins)
@@ -98,8 +96,9 @@ if __name__ == "__main__":
 
     FFT_units = 1000 #FFT outputs in Hz, this converts to kHz
 
-    spectral = SpectralClustering(n_clusters=k, n_init=100, eigen_solver='arpack'
+    spectral = SpectralClustering(n_clusters=k, n_init=1000, eigen_solver='arpack'
                                     ,affinity="nearest_neighbors",  n_neighbors=NN)
+    #spectral = KMeans(n_clusters=k, n_init=2000)
 
     '''
     Cast experiment as vectors
@@ -120,3 +119,5 @@ if __name__ == "__main__":
 
 
         print(bins, 'ARI: ', ari(labels, ground_truth))
+        #print('Matching rate:', get_match_rate(labels, ground_truth))
+        #print(labels, ground_truth)
